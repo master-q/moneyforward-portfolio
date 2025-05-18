@@ -4,8 +4,8 @@ const DOMAIN: &str = "https://ssnb.x.moneyforward.com/users/sign_in";
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let user = &args[1];
-    let pass = &args[2];
+    let user = &args[2];
+    let pass = &args[3];
 
     let browser = headless_chrome::Browser::default().unwrap();
     let tab = browser.new_tab().unwrap();
@@ -23,4 +23,10 @@ fn main() {
     let t = tab.wait_for_element(".heading-radius-box").unwrap();
     let total = t.get_inner_text().unwrap();
     println!("{}", total);
+    let t1 = tab.wait_for_element("table.table:nth-child(4)").unwrap();
+    let breakdown = t1.get_inner_text().unwrap();
+    println!("{}", breakdown);
+    let t2 = tab.wait_for_element(".table-bd").unwrap();
+    let breakdown = t2.get_inner_text().unwrap();
+    println!("{}", breakdown);
 }
