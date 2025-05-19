@@ -1,4 +1,5 @@
 use std::env;
+use regex::Regex;
 
 const DOMAIN: &str = "https://ssnb.x.moneyforward.com/users/sign_in";
 
@@ -21,12 +22,33 @@ fn main() {
     a1.click().unwrap();
     
     let t = tab.wait_for_element(".heading-radius-box").unwrap();
-    let total = t.get_inner_text().unwrap();
-    println!("{}", total);
+    let mut total = t.get_inner_text().unwrap();
+    total.retain(|c| c != ',');
+    let re = Regex::new(r"\s+(\d+)円").unwrap();
+    let caps_total = re.captures(&total).unwrap();
+    println!("合計: {}円", &caps_total[1]);
+
     let t1 = tab.wait_for_element("table.table:nth-child(4)").unwrap();
-    let breakdown = t1.get_inner_text().unwrap();
-    println!("{}", breakdown);
+    let mut breakdown = t1.get_inner_text().unwrap();
+    breakdown.retain(|c| c != ',');
+    let re_money = Regex::new(r"現金.+\s+(\d+)円").unwrap();
+    let caps_money = re_money.captures(&breakdown).unwrap();
+    println!("現金: {}円", &caps_money[1]);
+    let re_treasury = Regex::new(r"債券\s+(\d+)円").unwrap();
+    let caps_treasury = re_treasury.captures(&breakdown).unwrap();
+    println!("債券: {}円", &caps_treasury[1]);
+
     let t2 = tab.wait_for_element(".table-bd").unwrap();
-    let breakdown = t2.get_inner_text().unwrap();
-    println!("{}", breakdown);
+    let mut treasury = t2.get_inner_text().unwrap();
+    treasury.retain(|c| c != ',');
+    for tline in treasury.lines() {
+        let re_us_treasury = Regex::new(r"米国国債.+\s+(\d\d\d\d)/\d+/\d+満期\s+(\d+)円").unwrap();
+        let caps_us_treasury = re_us_treasury.captures(&tline);
+        match caps_us_treasury {
+            None => continue,
+            Some(c) => {
+                println!("{}年 {}円", &c[1], &c[2])
+            }
+        }
+    }
 }

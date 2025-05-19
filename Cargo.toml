@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 headless_chrome = "1.0.17"
+regex = "1.11.1"
