@@ -1,24 +1,11 @@
 use std::env;
+use std::sync::Arc;
 use std::collections::HashMap;
 use regex::Regex;
 
 const DOMAIN: &str = "https://ssnb.x.moneyforward.com/users/sign_in";
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-    let user = &args[2];
-    let pass = &args[3];
-
-    let browser = headless_chrome::Browser::default().unwrap();
-    let tab = browser.new_tab().unwrap();
-    tab.navigate_to(&(DOMAIN.to_string())).unwrap();
-
-    tab.wait_for_element("#sign_in_session_service_email").unwrap().click().unwrap();
-    tab.type_str(&user).unwrap();
-    tab.wait_for_element("#sign_in_session_service_password").unwrap().click().unwrap();
-    tab.type_str(&pass).unwrap();
-    tab.press_key("Enter").unwrap();
-
+fn show(tab: Arc<headless_chrome::browser::Tab>) {
     let a1 = tab.wait_for_element("li.global-menu-item:nth-child(4) > a:nth-child(1)").unwrap();
     a1.click().unwrap();
     
@@ -67,5 +54,25 @@ fn main() {
     v.sort();
     for i in v {
         println!("{}年 {}円", i.0, i.1);
+    }
+}
+
+fn main() {
+    let args: Vec<String> = env::args().collect();
+    let user = &args[2];
+    let pass = &args[3];
+
+    let browser = headless_chrome::Browser::default().unwrap();
+    let tab = browser.new_tab().unwrap();
+    tab.navigate_to(&(DOMAIN.to_string())).unwrap();
+
+    tab.wait_for_element("#sign_in_session_service_email").unwrap().click().unwrap();
+    tab.type_str(&user).unwrap();
+    tab.wait_for_element("#sign_in_session_service_password").unwrap().click().unwrap();
+    tab.type_str(&pass).unwrap();
+    tab.press_key("Enter").unwrap();
+
+    if args[1] == "show" {
+        show(tab);
     }
 }
