@@ -26,17 +26,22 @@ fn main() {
     total.retain(|c| c != ',');
     let re = Regex::new(r"\s+(\d+)円").unwrap();
     let caps_total = re.captures(&total).unwrap();
-    println!("合計: {}円", &caps_total[1]);
+    let total_f: f64 = caps_total[1].parse().unwrap();
 
     let t1 = tab.wait_for_element("table.table:nth-child(4)").unwrap();
     let mut breakdown = t1.get_inner_text().unwrap();
     breakdown.retain(|c| c != ',');
     let re_money = Regex::new(r"現金.+\s+(\d+)円").unwrap();
     let caps_money = re_money.captures(&breakdown).unwrap();
-    println!("現金: {}円", &caps_money[1]);
+    let money_f: f64 = caps_money[1].parse().unwrap();
     let re_treasury = Regex::new(r"債券\s+(\d+)円").unwrap();
     let caps_treasury = re_treasury.captures(&breakdown).unwrap();
-    println!("債券: {}円", &caps_treasury[1]);
+    let treasury_f: f64 = caps_treasury[1].parse().unwrap();
+
+    let stock_f = total_f - money_f - treasury_f;
+    println!("株式: {}%", stock_f / total_f * 100.0);
+    println!("債券: {}%", treasury_f / total_f * 100.0);
+    println!("現金: {}%", money_f / total_f * 100.0);
 
     let t2 = tab.wait_for_element(".table-bd").unwrap();
     let mut treasury = t2.get_inner_text().unwrap();
