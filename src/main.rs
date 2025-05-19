@@ -1,4 +1,5 @@
 use std::env;
+use std::collections::HashMap;
 use regex::Regex;
 
 const DOMAIN: &str = "https://ssnb.x.moneyforward.com/users/sign_in";
@@ -39,21 +40,32 @@ fn main() {
     let treasury_f: f64 = caps_treasury[1].parse().unwrap();
 
     let stock_f = total_f - money_f - treasury_f;
+    println!("## 比率");
     println!("株式: {}%", stock_f / total_f * 100.0);
     println!("債券: {}%", treasury_f / total_f * 100.0);
     println!("現金: {}%", money_f / total_f * 100.0);
 
+    println!("\n## 米国債内訳");
     let t2 = tab.wait_for_element(".table-bd").unwrap();
     let mut treasury = t2.get_inner_text().unwrap();
     treasury.retain(|c| c != ',');
+    let mut map = HashMap::new();
     for tline in treasury.lines() {
         let re_us_treasury = Regex::new(r"米国国債.+\s+(\d\d\d\d)/\d+/\d+満期\s+(\d+)円").unwrap();
         let caps_us_treasury = re_us_treasury.captures(&tline);
         match caps_us_treasury {
             None => continue,
             Some(c) => {
-                println!("{}年 {}円", &c[1], &c[2])
+                let year: i32 = c[1].parse().unwrap();
+                let m: i64 = c[2].parse().unwrap();
+                let count = map.entry(year).or_insert(0);
+                *count += m;
             }
         }
+    }
+    let mut v: Vec<_> = map.into_iter().collect();
+    v.sort();
+    for i in v {
+        println!("{}年 {}円", i.0, i.1);
     }
 }
