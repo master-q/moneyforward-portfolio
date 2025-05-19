@@ -57,6 +57,18 @@ fn show(tab: Arc<headless_chrome::browser::Tab>) {
     }
 }
 
+fn sync(tab: Arc<headless_chrome::browser::Tab>) {
+    let a1 = tab.wait_for_element("li.global-menu-item:nth-child(6) > a:nth-child(1)").unwrap();
+    a1.click().unwrap();
+
+    let inputs = tab.wait_for_elements("#account-table > tbody:nth-child(1) > tr > td:nth-child(5) > form:nth-child(1) > input:nth-child(1)").unwrap();
+    for (i, e) in inputs.iter().enumerate() {
+        e.click().unwrap();
+        eprint!("{}.", i);
+    }
+    eprintln!("");
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     let user = &args[2];
@@ -74,5 +86,7 @@ fn main() {
 
     if args[1] == "show" {
         show(tab);
+    } else if args[1] == "sync" {
+        sync(tab);
     }
 }
