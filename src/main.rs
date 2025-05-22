@@ -61,7 +61,7 @@ fn sync(tab: Arc<headless_chrome::browser::Tab>) {
     let a1 = tab.wait_for_element("li.global-menu-item:nth-child(6) > a:nth-child(1)").unwrap();
     a1.click().unwrap();
 
-    let inputs = tab.wait_for_elements("#account-table > tbody:nth-child(1) > tr > td > form:nth-child(1) > input:nth-child(1)").unwrap();
+    let inputs = tab.wait_for_elements("#account-table > tbody:nth-child(1) > tr > td > form > input").unwrap();
     let mut n = 0;
     for (_, e) in inputs.iter().enumerate() {
         let v = e.get_attribute_value("value").unwrap().unwrap();
