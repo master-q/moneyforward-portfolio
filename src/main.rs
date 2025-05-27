@@ -32,7 +32,7 @@ fn show(tab: Arc<headless_chrome::browser::Tab>) {
     println!("債券: {}%", treasury_f / total_f * 100.0);
     println!("現金: {}%", money_f / total_f * 100.0);
 
-    println!("\n## 米国債内訳");
+    println!("\n## 米国国債内訳");
     let t2 = tab.wait_for_element(".table-bd").unwrap();
     let mut treasury = t2.get_inner_text().unwrap();
     treasury.retain(|c| c != ',');
