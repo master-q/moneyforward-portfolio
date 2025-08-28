@@ -15,6 +15,8 @@ fn show(tab: Arc<headless_chrome::browser::Tab>) {
     let re = Regex::new(r"\s+(\d+)円").unwrap();
     let caps_total = re.captures(&total).unwrap();
     let total_f: f64 = caps_total[1].parse().unwrap();
+    println!("## 資産総額");
+    println!("{}円", total_f);
 
     let t1 = tab.wait_for_element("table.table:nth-child(4)").unwrap();
     let mut breakdown = t1.get_inner_text().unwrap();
@@ -27,7 +29,7 @@ fn show(tab: Arc<headless_chrome::browser::Tab>) {
     let treasury_f: f64 = caps_treasury[1].parse().unwrap();
 
     let stock_f = total_f - money_f - treasury_f;
-    println!("## 比率");
+    println!("\n## 比率");
     println!("株式: {}%", stock_f / total_f * 100.0);
     println!("債券: {}%", treasury_f / total_f * 100.0);
     println!("現金: {}%", money_f / total_f * 100.0);
