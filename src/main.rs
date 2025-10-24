@@ -32,9 +32,9 @@ fn show(tab: Arc<headless_chrome::browser::Tab>) {
     let mut mutualfund = t3.get_inner_text().unwrap();
     mutualfund.retain(|c| c != ',');
     let mut mmf_f = 0.0;
+    let re_mmf = Regex::new(r"マネー・マーケット・ファンド.+\s+(\d+)円\s+\d+円\s+\d+円").unwrap();
     for mline in mutualfund.lines() {
-        let re_mmf = Regex::new(r"マネー・マーケット・ファンド.+\s+(\d+)円\s+\d+円\s+\d+円").unwrap();
-        let caps_mmf = re_mmf.captures(&mline);
+        let caps_mmf = re_mmf.captures(mline);
         match caps_mmf {
             None => continue,
             Some(c) => {
@@ -47,9 +47,9 @@ fn show(tab: Arc<headless_chrome::browser::Tab>) {
     let mut treasury = t2.get_inner_text().unwrap();
     treasury.retain(|c| c != ',');
     let mut map = HashMap::new();
+    let re_us_treasury = Regex::new(r"米国国債.+\s+(\d\d\d\d)/\d+/\d+満期\s+(\d+)円").unwrap();
     for tline in treasury.lines() {
-        let re_us_treasury = Regex::new(r"米国国債.+\s+(\d\d\d\d)/\d+/\d+満期\s+(\d+)円").unwrap();
-        let caps_us_treasury = re_us_treasury.captures(&tline);
+        let caps_us_treasury = re_us_treasury.captures(tline);
         match caps_us_treasury {
             None => continue,
             Some(c) => {
@@ -88,7 +88,7 @@ fn sync(tab: Arc<headless_chrome::browser::Tab>) {
 
     let inputs = tab.wait_for_elements("#account-table > tbody:nth-child(1) > tr > td > form > input").unwrap();
     let mut n = 0;
-    for (_, e) in inputs.iter().enumerate() {
+    for e in inputs.iter() {
         let v = e.get_attribute_value("value").unwrap().unwrap();
         if v == "更新" {
             e.click().unwrap();
@@ -96,7 +96,7 @@ fn sync(tab: Arc<headless_chrome::browser::Tab>) {
             eprint!("{}.", n);
         }
     }
-    eprintln!("");
+    eprintln!();
 }
 
 fn main() {
@@ -106,12 +106,12 @@ fn main() {
 
     let browser = headless_chrome::Browser::default().unwrap();
     let tab = browser.new_tab().unwrap();
-    tab.navigate_to(&(DOMAIN.to_string())).unwrap();
+    tab.navigate_to(DOMAIN).unwrap();
 
     tab.wait_for_element("#sign_in_session_service_email").unwrap().click().unwrap();
-    tab.type_str(&user).unwrap();
+    tab.type_str(user).unwrap();
     tab.wait_for_element("#sign_in_session_service_password").unwrap().click().unwrap();
-    tab.type_str(&pass).unwrap();
+    tab.type_str(pass).unwrap();
     tab.press_key("Enter").unwrap();
 
     if args[1] == "show" {
