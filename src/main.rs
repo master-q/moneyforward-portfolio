@@ -28,6 +28,21 @@ fn show(tab: Arc<headless_chrome::browser::Tab>) {
     let caps_treasury = re_treasury.captures(&breakdown).unwrap();
     let treasury_f: f64 = caps_treasury[1].parse().unwrap();
 
+    let t3 = tab.wait_for_element(".table-mf").unwrap();
+    let mut mutualfund = t3.get_inner_text().unwrap();
+    mutualfund.retain(|c| c != ',');
+    let mut mmf_f = 0.0;
+    for mline in mutualfund.lines() {
+        let re_mmf = Regex::new(r"マネー・マーケット・ファンド.+\s+(\d+)円\s+\d+円\s+\d+円").unwrap();
+        let caps_mmf = re_mmf.captures(&mline);
+        match caps_mmf {
+            None => continue,
+            Some(c) => {
+                mmf_f = c[1].parse().unwrap();
+            }
+        }
+    }
+
     let t2 = tab.wait_for_element(".table-bd").unwrap();
     let mut treasury = t2.get_inner_text().unwrap();
     treasury.retain(|c| c != ',');
@@ -53,10 +68,11 @@ fn show(tab: Arc<headless_chrome::browser::Tab>) {
 
     let stock_f = total_f - money_f - treasury_f;
     println!("\n## 比率");
-    println!("株式: {}%", stock_f / total_f * 100.0);
+    println!("株式: {}%", (stock_f - mmf_f) / total_f * 100.0);
     println!("債券: {}%", treasury_f / total_f * 100.0);
     println!("  日本国債: {}%", (treasury_f - treasury_us_f) / total_f * 100.0);
     println!("    米国債: {}%", treasury_us_f / total_f * 100.0);
+    println!(" MMF: {}%", mmf_f / total_f * 100.0);
     println!("現金: {}%", money_f / total_f * 100.0);
 
     println!("\n## 米国国債満期");
