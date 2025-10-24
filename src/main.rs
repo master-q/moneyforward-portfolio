@@ -28,13 +28,6 @@ fn show(tab: Arc<headless_chrome::browser::Tab>) {
     let caps_treasury = re_treasury.captures(&breakdown).unwrap();
     let treasury_f: f64 = caps_treasury[1].parse().unwrap();
 
-    let stock_f = total_f - money_f - treasury_f;
-    println!("\n## 比率");
-    println!("株式: {}%", stock_f / total_f * 100.0);
-    println!("債券: {}%", treasury_f / total_f * 100.0);
-    println!("現金: {}%", money_f / total_f * 100.0);
-
-    println!("\n## 米国国債内訳");
     let t2 = tab.wait_for_element(".table-bd").unwrap();
     let mut treasury = t2.get_inner_text().unwrap();
     treasury.retain(|c| c != ',');
@@ -53,8 +46,22 @@ fn show(tab: Arc<headless_chrome::browser::Tab>) {
         }
     }
     let mut v: Vec<_> = map.into_iter().collect();
+    let mut treasury_us_f = 0.0;
+    for i in &v {
+        treasury_us_f += i.1 as f64;
+    }
+
+    let stock_f = total_f - money_f - treasury_f;
+    println!("\n## 比率");
+    println!("株式: {}%", stock_f / total_f * 100.0);
+    println!("債券: {}%", treasury_f / total_f * 100.0);
+    println!("  日本国債: {}%", (treasury_f - treasury_us_f) / total_f * 100.0);
+    println!("    米国債: {}%", treasury_us_f / total_f * 100.0);
+    println!("現金: {}%", money_f / total_f * 100.0);
+
+    println!("\n## 米国国債満期");
     v.sort();
-    for i in v {
+    for i in &v {
         println!("{}年 {}円", i.0, i.1);
     }
 }
