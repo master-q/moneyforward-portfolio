@@ -75,7 +75,7 @@ fn show(tab: Arc<headless_chrome::browser::Tab>) {
     println!(" MMF: {}%", mmf_f / total_f * 100.0);
     println!("現金: {}%", money_f / total_f * 100.0);
 
-    println!("\n## 米国国債満期");
+    println!("\n## 米国債満期");
     v.sort();
     for i in &v {
         println!("{}年 {}円", i.0, i.1);
