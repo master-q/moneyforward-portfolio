@@ -32,7 +32,7 @@ fn show(tab: Arc<headless_chrome::browser::Tab>) {
     let mut mutualfund = t3.get_inner_text().unwrap();
     mutualfund.retain(|c| c != ',');
     let mut mmf_f = 0.0;
-    let re_mmf = Regex::new(r"マネー・マーケット・ファンド.+\s+(\d+)円\s+\d+円\s+\d+円").unwrap();
+    let re_mmf = Regex::new(r"マネー・マーケット・ファンド.+\s+(\d+)円\s+[-\d]+円\s+[-\d]+円").unwrap();
     for mline in mutualfund.lines() {
         let caps_mmf = re_mmf.captures(mline);
         match caps_mmf {
