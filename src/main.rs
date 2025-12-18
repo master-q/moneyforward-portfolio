@@ -25,8 +25,12 @@ fn show(tab: Arc<headless_chrome::browser::Tab>) {
     let caps_money = re_money.captures(&breakdown).unwrap();
     let money_f: f64 = caps_money[1].parse().unwrap();
     let re_treasury = Regex::new(r"債券\s+(\d+)円").unwrap();
-    let caps_treasury = re_treasury.captures(&breakdown).unwrap();
-    let treasury_f: f64 = caps_treasury[1].parse().unwrap();
+    let caps_treasury = re_treasury.captures(&breakdown);
+    let treasury_f: f64 =
+        match caps_treasury {
+            None => 0.0,
+            Some(i) => i[1].parse().unwrap(),
+        };
 
     let t3 = tab.wait_for_element(".table-mf").unwrap();
     let mut mutualfund = t3.get_inner_text().unwrap();
@@ -43,28 +47,35 @@ fn show(tab: Arc<headless_chrome::browser::Tab>) {
         }
     }
 
-    let t2 = tab.wait_for_element(".table-bd").unwrap();
-    let mut treasury = t2.get_inner_text().unwrap();
-    treasury.retain(|c| c != ',');
-    let mut map = HashMap::new();
-    let re_us_treasury = Regex::new(r"米国国債.+\s+(\d\d\d\d)/\d+/\d+満期\s+(\d+)円").unwrap();
-    for tline in treasury.lines() {
-        let caps_us_treasury = re_us_treasury.captures(tline);
-        match caps_us_treasury {
-            None => continue,
-            Some(c) => {
-                let year: i32 = c[1].parse().unwrap();
-                let m: i64 = c[2].parse().unwrap();
-                let count = map.entry(year).or_insert(0);
-                *count += m;
-            }
-        }
-    }
-    let mut v: Vec<_> = map.into_iter().collect();
-    let mut treasury_us_f = 0.0;
-    for i in &v {
-        treasury_us_f += i.1 as f64;
-    }
+    let t2 = tab.wait_for_element(".table-bd");
+    let (mut v, treasury_us_f) =
+        match t2 {
+            Err(_) => (Vec::<(i32, i64)>::from([]), 0.0 as f64),
+            Ok(e) => {
+                let mut treasury = e.get_inner_text().unwrap();
+                treasury.retain(|c| c != ',');
+                let mut map = HashMap::new();
+                let re_us_treasury = Regex::new(r"米国国債.+\s+(\d\d\d\d)/\d+/\d+満期\s+(\d+)円").unwrap();
+                for tline in treasury.lines() {
+                    let caps_us_treasury = re_us_treasury.captures(tline);
+                    match caps_us_treasury {
+                        None => continue,
+                        Some(c) => {
+                            let year: i32 = c[1].parse().unwrap();
+                            let m: i64 = c[2].parse().unwrap();
+                            let count = map.entry(year).or_insert(0);
+                            *count += m;
+                        }
+                    }
+                }
+                let v: Vec<_> = map.into_iter().collect();
+                let mut treasury_us_f = 0.0;
+                for i in &v {
+                    treasury_us_f += i.1 as f64;
+                }
+                (v, treasury_us_f)
+            },
+        };
 
     let stock_f = total_f - money_f - treasury_f;
     println!("\n## 比率");
