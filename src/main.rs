@@ -62,7 +62,7 @@ fn show(tab: Arc<headless_chrome::browser::Tab>) {
     let t2 = tab.wait_for_element(".table-bd");
     let (mut v, treasury_us_f) =
         match t2 {
-            Err(_) => (Vec::<(i32, i64)>::from([]), 0.0 as f64),
+            Err(_) => (Vec::<(i32, i64)>::from([]), 0.0_f64),
             Ok(e) => {
                 let mut treasury = e.get_inner_text().unwrap();
                 treasury.retain(|c| c != ',');
@@ -93,14 +93,14 @@ fn show(tab: Arc<headless_chrome::browser::Tab>) {
     println!("\n## 比率");
     println!("株式: {}%", stock_f / total_f * 100.0);
     println!("債券: {}%", treasury_f / total_f * 100.0);
-    if v.len() > 0 {
+    if !v.is_empty() {
         println!("  米国債: {}%", treasury_us_f / total_f * 100.0);
     }
     println!("REIT: {}%", reit_f / total_f * 100.0);
     println!(" MMF: {}%", mmf_f / total_f * 100.0);
     println!("現金: {}%", money_f / total_f * 100.0);
 
-    if v.len() > 0 {
+    if !v.is_empty() {
         println!("\n## 米国債満期");
         v.sort();
         for i in &v {
