@@ -1,106 +1,115 @@
+use regex::Regex;
+use std::collections::HashMap;
 use std::env;
 use std::sync::Arc;
-use std::collections::HashMap;
-use regex::Regex;
 
 const DOMAIN: &str = "https://ssnb.x.moneyforward.com/users/sign_in";
 
+// 資産データを保持する構造体
+#[derive(Default,Debug)]
+struct Portfolio {
+    total: f64,
+    money: f64,
+    treasury: f64,
+    mmf: f64,
+    reit: f64,
+    us_treasury_map: HashMap<i32, i64>,
+}
+
+impl Portfolio {
+    fn stock(&self) -> f64 {
+        self.total - self.money - self.treasury - self.reit - self.mmf
+    }
+
+    fn print_ratios(&self) {
+        let total = self.total;
+        println!("\n## 比率");
+        let list = [
+            ("株式", self.stock()),
+            ("債券", self.treasury),
+            ("REIT", self.reit),
+            (" MMF", self.mmf),
+            ("現金", self.money),
+        ];
+        for (label, val) in list {
+            println!("{}: {:.2}%", label, val / total * 100.0);
+        }
+
+        if !self.us_treasury_map.is_empty() {
+            let us_total: i64 = self.us_treasury_map.values().sum();
+            println!("(米国債: {:.2}%)", (us_total as f64) / total * 100.0);
+        }
+    }
+}
+
+// ヘルパー関数: 要素からテキストを取得してカンマを除去
+fn get_clean_text(tab: &headless_chrome::browser::Tab, selector: &str) -> String {
+    tab.wait_for_element(selector)
+        .map(|e| e.get_inner_text().unwrap().replace(',', ""))
+        .unwrap()
+}
+
+// ヘルパー関数: テキストから正規表現で最初の数値を抽出
+fn extract_f64(text: &str, pattern: &str) -> f64 {
+    Regex::new(pattern)
+        .unwrap()
+        .captures(text)
+        .and_then(|c| c.get(1))
+        .map_or(0.0, |m| m.as_str().parse().unwrap())
+}
+
 fn show(tab: Arc<headless_chrome::browser::Tab>) {
-    let a1 = tab.wait_for_element("li.global-menu-item:nth-child(4) > a:nth-child(1)").unwrap();
-    a1.click().unwrap();
+    tab.wait_for_element("li.global-menu-item:nth-child(4) > a").unwrap().click().unwrap();
 
-    // 資産総額
-    let t = tab.wait_for_element(".heading-radius-box").unwrap();
-    let mut total = t.get_inner_text().unwrap();
-    total.retain(|c| c != ',');
-    let re = Regex::new(r"\s+(\d+)円").unwrap();
-    let caps_total = re.captures(&total).unwrap();
-    let total_f: f64 = caps_total[1].parse().unwrap();
-    println!("## 資産総額");
-    println!("{}円", total_f);
+    let mut p = Portfolio::default();
 
-    // 現金と生の債券
-    let t1 = tab.wait_for_element("table.table:nth-child(4)").unwrap();
-    let mut breakdown = t1.get_inner_text().unwrap();
-    breakdown.retain(|c| c != ',');
-    let re_money = Regex::new(r"現金.+\s+(\d+)円").unwrap();
-    let caps_money = re_money.captures(&breakdown).unwrap();
-    let money_f: f64 = caps_money[1].parse().unwrap();
-    let re_treasury = Regex::new(r"債券\s+(\d+)円").unwrap();
-    let caps_treasury = re_treasury.captures(&breakdown);
-    let mut treasury_f: f64 =
-        match caps_treasury {
-            None => 0.0,
-            Some(i) => i[1].parse().unwrap(),
-        };
+    // 1. 資産総額
+    let total_text = get_clean_text(&tab, ".heading-radius-box");
+    p.total = extract_f64(&total_text, r"(\d+)円");
+    println!("## 資産総額\n{}円", p.total);
 
-    // 投資信託振り分け
-    let t3 = tab.wait_for_element(".table-mf").unwrap();
-    let mut mutualfund = t3.get_inner_text().unwrap();
-    mutualfund.retain(|c| c != ',');
-    let mut mmf_f = 0.0;
-    let mut reit_f = 0.0;
-    let mut v = [
-        (&mut mmf_f, Regex::new(r"マネー・マーケット・ファンド.+\s+(\d+)円\s+[-\d]+円\s+[-\d]+円").unwrap()),
-        (&mut treasury_f, Regex::new(r"債券.+\s+(\d+)円\s+[-\d]+円\s+[-\d]+円").unwrap()),
-        (&mut reit_f, Regex::new(r"リート.+\s+(\d+)円\s+[-\d]+円\s+[-\d]+円").unwrap())
-    ];
-    for mline in mutualfund.lines() {
-        for i in v.iter_mut() {
-            if let Some(c) = i.1.captures(mline) {
-                let f: f64 = c[1].parse().unwrap();
-                *i.0 += f;
+    // 2. 現金と債券
+    let breakdown_text = get_clean_text(&tab, "table.table:nth-child(4)");
+    p.money = extract_f64(&breakdown_text, r"現金.+\s+(\d+)円");
+    p.treasury = extract_f64(&breakdown_text, r"債券\s+(\d+)円");
+
+    // 3. 投資信託の振り分け
+    let mf_text = get_clean_text(&tab, ".table-mf");
+    let re_mmf = Regex::new(r"マネー・マーケット・ファンド.+\s+(\d+)円\s+[-\d]+円\s+[-\d]+円").unwrap();
+    let re_treasury = Regex::new(r"債券.+\s+(\d+)円\s+[-\d]+円\s+[-\d]+円").unwrap();
+    let re_reit = Regex::new(r"リート.+\s+(\d+)円\s+[-\d]+円\s+[-\d]+円").unwrap();
+    for line in mf_text.lines() {
+        if let Some(c) = re_mmf.captures(line) {
+            p.mmf += c[1].parse::<f64>().unwrap();
+        } else if let Some(c) = re_treasury.captures(line) {
+            p.treasury += c[1].parse::<f64>().unwrap();
+        } else if let Some(c) = re_reit.captures(line) {
+            p.reit += c[1].parse::<f64>().unwrap();
+        }
+    }
+
+    // 4. 米国債（満期別）
+    if let Ok(e) = tab.wait_for_element(".table-bd") {
+        let bd_text = e.get_inner_text().unwrap().replace(',', "");
+        let re_us = Regex::new(r"米国国債.+\s+(\d{4})/\d+/\d+満期\s+(\d+)円").unwrap();
+        for line in bd_text.lines() {
+            if let Some(c) = re_us.captures(line) {
+                let year: i32 = c[1].parse().unwrap();
+                let amount: i64 = c[2].parse().unwrap();
+                *p.us_treasury_map.entry(year).or_insert(0) += amount;
             }
         }
     }
 
-    // 債券振り分け
-    let t2 = tab.wait_for_element(".table-bd");
-    let (mut v, treasury_us_f) =
-        match t2 {
-            Err(_) => (Vec::<(i32, i64)>::from([]), 0.0_f64),
-            Ok(e) => {
-                let mut treasury = e.get_inner_text().unwrap();
-                treasury.retain(|c| c != ',');
-                let mut map = HashMap::new();
-                let re_us_treasury = Regex::new(r"米国国債.+\s+(\d\d\d\d)/\d+/\d+満期\s+(\d+)円").unwrap();
-                for tline in treasury.lines() {
-                    let caps_us_treasury = re_us_treasury.captures(tline);
-                    match caps_us_treasury {
-                        None => continue,
-                        Some(c) => {
-                            let year: i32 = c[1].parse().unwrap();
-                            let m: i64 = c[2].parse().unwrap();
-                            let count = map.entry(year).or_insert(0);
-                            *count += m;
-                        }
-                    }
-                }
-                let v: Vec<_> = map.into_iter().collect();
-                let mut treasury_us_f = 0.0;
-                for i in &v {
-                    treasury_us_f += i.1 as f64;
-                }
-                (v, treasury_us_f)
-            },
-        };
+    // 結果表示
+    p.print_ratios();
 
-    let stock_f = total_f - money_f - treasury_f - reit_f - mmf_f;
-    println!("\n## 比率");
-    println!("株式: {}%", stock_f / total_f * 100.0);
-    println!("債券: {}%", treasury_f / total_f * 100.0);
-    if !v.is_empty() {
-        println!("  米国債: {}%", treasury_us_f / total_f * 100.0);
-    }
-    println!("REIT: {}%", reit_f / total_f * 100.0);
-    println!(" MMF: {}%", mmf_f / total_f * 100.0);
-    println!("現金: {}%", money_f / total_f * 100.0);
-
-    if !v.is_empty() {
+    if !p.us_treasury_map.is_empty() {
         println!("\n## 米国債満期");
-        v.sort();
-        for i in &v {
-            println!("{}年 {}円", i.0, i.1);
+        let mut years: Vec<_> = p.us_treasury_map.iter().collect();
+        years.sort_by_key(|k| k.0);
+        for (y, amt) in years {
+            println!("{}年 {}円", y, amt);
         }
     }
 }
