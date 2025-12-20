@@ -40,21 +40,17 @@ fn show(tab: Arc<headless_chrome::browser::Tab>) {
     mutualfund.retain(|c| c != ',');
     let mut mmf_f = 0.0;
     let mut reit_f = 0.0;
-    let re_mmf = Regex::new(r"マネー・マーケット・ファンド.+\s+(\d+)円\s+[-\d]+円\s+[-\d]+円").unwrap();
-    let re_treasury = Regex::new(r"債券.+\s+(\d+)円\s+[-\d]+円\s+[-\d]+円").unwrap();
-    let re_reit = Regex::new(r"リート.+\s+(\d+)円\s+[-\d]+円\s+[-\d]+円").unwrap();
+    let mut v = [
+        (&mut mmf_f, Regex::new(r"マネー・マーケット・ファンド.+\s+(\d+)円\s+[-\d]+円\s+[-\d]+円").unwrap()),
+        (&mut treasury_f, Regex::new(r"債券.+\s+(\d+)円\s+[-\d]+円\s+[-\d]+円").unwrap()),
+        (&mut reit_f, Regex::new(r"リート.+\s+(\d+)円\s+[-\d]+円\s+[-\d]+円").unwrap())
+    ];
     for mline in mutualfund.lines() {
-        if let Some(c) = re_mmf.captures(mline) {
-            let f: f64 = c[1].parse().unwrap();
-            mmf_f += f;
-        }
-        if let Some(c) = re_treasury.captures(mline) {
-            let f: f64 = c[1].parse().unwrap();
-            treasury_f += f;
-        }
-        if let Some(c) = re_reit.captures(mline) {
-            let f: f64 = c[1].parse().unwrap();
-            reit_f += f;
+        for i in v.iter_mut() {
+            if let Some(c) = i.1.captures(mline) {
+                let f: f64 = c[1].parse().unwrap();
+                *i.0 += f;
+            }
         }
     }
 
