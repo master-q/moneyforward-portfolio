@@ -8,7 +8,8 @@ const DOMAIN: &str = "https://ssnb.x.moneyforward.com/users/sign_in";
 fn show(tab: Arc<headless_chrome::browser::Tab>) {
     let a1 = tab.wait_for_element("li.global-menu-item:nth-child(4) > a:nth-child(1)").unwrap();
     a1.click().unwrap();
-    
+
+    // 資産総額
     let t = tab.wait_for_element(".heading-radius-box").unwrap();
     let mut total = t.get_inner_text().unwrap();
     total.retain(|c| c != ',');
@@ -18,6 +19,7 @@ fn show(tab: Arc<headless_chrome::browser::Tab>) {
     println!("## 資産総額");
     println!("{}円", total_f);
 
+    // 現金と生の債券
     let t1 = tab.wait_for_element("table.table:nth-child(4)").unwrap();
     let mut breakdown = t1.get_inner_text().unwrap();
     breakdown.retain(|c| c != ',');
@@ -26,27 +28,37 @@ fn show(tab: Arc<headless_chrome::browser::Tab>) {
     let money_f: f64 = caps_money[1].parse().unwrap();
     let re_treasury = Regex::new(r"債券\s+(\d+)円").unwrap();
     let caps_treasury = re_treasury.captures(&breakdown);
-    let treasury_f: f64 =
+    let mut treasury_f: f64 =
         match caps_treasury {
             None => 0.0,
             Some(i) => i[1].parse().unwrap(),
         };
 
+    // 投資信託振り分け
     let t3 = tab.wait_for_element(".table-mf").unwrap();
     let mut mutualfund = t3.get_inner_text().unwrap();
     mutualfund.retain(|c| c != ',');
     let mut mmf_f = 0.0;
+    let mut reit_f = 0.0;
     let re_mmf = Regex::new(r"マネー・マーケット・ファンド.+\s+(\d+)円\s+[-\d]+円\s+[-\d]+円").unwrap();
+    let re_treasury = Regex::new(r"債券.+\s+(\d+)円\s+[-\d]+円\s+[-\d]+円").unwrap();
+    let re_reit = Regex::new(r"リート.+\s+(\d+)円\s+[-\d]+円\s+[-\d]+円").unwrap();
     for mline in mutualfund.lines() {
-        let caps_mmf = re_mmf.captures(mline);
-        match caps_mmf {
-            None => continue,
-            Some(c) => {
-                mmf_f = c[1].parse().unwrap();
-            }
+        if let Some(c) = re_mmf.captures(mline) {
+            let f: f64 = c[1].parse().unwrap();
+            mmf_f += f;
+        }
+        if let Some(c) = re_treasury.captures(mline) {
+            let f: f64 = c[1].parse().unwrap();
+            treasury_f += f;
+        }
+        if let Some(c) = re_reit.captures(mline) {
+            let f: f64 = c[1].parse().unwrap();
+            reit_f += f;
         }
     }
 
+    // 債券振り分け
     let t2 = tab.wait_for_element(".table-bd");
     let (mut v, treasury_us_f) =
         match t2 {
@@ -77,12 +89,14 @@ fn show(tab: Arc<headless_chrome::browser::Tab>) {
             },
         };
 
-    let stock_f = total_f - money_f - treasury_f;
+    let stock_f = total_f - money_f - treasury_f - reit_f - mmf_f;
     println!("\n## 比率");
-    println!("株式: {}%", (stock_f - mmf_f) / total_f * 100.0);
+    println!("株式: {}%", stock_f / total_f * 100.0);
     println!("債券: {}%", treasury_f / total_f * 100.0);
-    println!("  日本国債: {}%", (treasury_f - treasury_us_f) / total_f * 100.0);
-    println!("    米国債: {}%", treasury_us_f / total_f * 100.0);
+    if v.len() > 0 {
+        println!("  米国債: {}%", treasury_us_f / total_f * 100.0);
+    }
+    println!("REIT: {}%", reit_f / total_f * 100.0);
     println!(" MMF: {}%", mmf_f / total_f * 100.0);
     println!("現金: {}%", money_f / total_f * 100.0);
 
