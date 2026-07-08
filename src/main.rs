@@ -70,7 +70,7 @@ fn show(tab: Arc<headless_chrome::browser::Tab>) {
 
     // 2. 現金と債券
     let breakdown_text = get_clean_text(&tab, "table.table:nth-child(4)");
-    p.money = extract_f64(&breakdown_text, r"現金.+\s+(\d+)円");
+    p.money = extract_f64(&breakdown_text, r".*現金\s+(\d+)円");
     p.treasury = extract_f64(&breakdown_text, r"債券\s+(\d+)円");
 
     // 3. 投資信託の振り分け
